@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>comphca&#39;blog</title>
+  
+  
+  <link href="/atom.xml" rel="self"/>
+  
+  <link href="http://www.comphca.me/"/>
+  <updated>2018-06-05T14:36:22.938Z</updated>
+  <id>http://www.comphca.me/</id>
+  
+  <author>
+    <name>comphca</name>
+    
+  </author>
+  
+  <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>利用MLP找出Titanic背后感人的故事</title>
+    <link href="http://www.comphca.me/2018/06/05/%E5%88%A9%E7%94%A8MLP%E6%89%BE%E5%87%BATitanic%E8%83%8C%E5%90%8E%E6%84%9F%E4%BA%BA%E7%9A%84%E6%95%85%E4%BA%8B/"/>
+    <id>http://www.comphca.me/2018/06/05/利用MLP找出Titanic背后感人的故事/</id>
+    <published>2018-06-05T05:04:45.000Z</published>
+    <updated>2018-06-05T14:36:22.938Z</updated>
+    
+    <content type="html"><![CDATA[<p>数据科学家在处理数据的时候，常常只会看到冷冰冰的数据，却忘记了这些数据背后的故事，每一项数据都是由生物的活动产生的。这里我使用mlp对一部比较经典的电影进行书数据背后的分析。</p><p>具体代码详见：<a href="https://github.com/comphca/Basic-AI/blob/master/titanic/Multilay_titanic.py" target="_blank" rel="noopener">github</a></p><p>具体步骤</p><p>在网络上找到1309项数据，经过数据处理之后会产生features（一共有9个字段），与label标签字段（是否生存？0：否，1：是），然后输入多层感知器模型进行训练。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">filepath = &quot;./data/titanic3.xls&quot;</span><br><span class="line">all_df = pd.read_excel(filepath)</span><br></pre></td></tr></table></figure></p><p>在原始数据集里面有很多我们不需要的features，所以要将其剔除掉。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#选取我们感兴趣的features</span><br><span class="line">cols = [&apos;survived&apos;,&apos;name&apos;,&apos;pclass&apos;,&apos;sex&apos;,&apos;age&apos;,&apos;sibsp&apos;,&apos;parch&apos;,&apos;fare&apos;,&apos;embarked&apos;]</span><br><span class="line">all_df = all_df[cols]</span><br></pre></td></tr></table></figure></p><p>在原始数据里面我们还发现很多字段的值是null，还有name属性在训练的阶段时不需要的，在预测阶段才会用到。还有性别字段和登船入口字段需要解决<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">df = all_df.drop([&apos;name&apos;],axis=1)</span><br><span class="line">print(all_df.isnull().sum())</span><br><span class="line"></span><br><span class="line">#把发现的空值数据进行处理，这里选择取字段平均值</span><br><span class="line">age_mean = df[&apos;age&apos;].mean()</span><br><span class="line">df[&apos;age&apos;] = df[&apos;age&apos;].fillna(age_mean)</span><br><span class="line"></span><br><span class="line">fare_mean = df[&apos;fare&apos;].mean()</span><br><span class="line">df[&apos;fare&apos;] = df[&apos;fare&apos;].fillna(fare_mean)</span><br><span class="line"></span><br><span class="line">#性别字段转换为数字</span><br><span class="line">df[&apos;sex&apos;] = df[&apos;sex&apos;].map(&#123;&apos;female&apos;:0,&apos;male&apos;:1&#125;).astype(int)</span><br><span class="line"></span><br><span class="line">#embarked字段有三个值分别的C、Q、S，要进行一位有效编码解决</span><br><span class="line">x_OneHot_df = pd.get_dummies(data=df,columns=[&apos;embarked&apos;])</span><br></pre></td></tr></table></figure></p><p>到这里，数据还是以excel形式存储的，要想进行模型训练，必须要将数据转换为Array<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#ndarray.shape=(1309,10)  共1309项数据，每项10个features   10个features值对应处理之后excel的字段，第0项时label，其他是features</span><br><span class="line">ndarray = x_OneHot_df.values</span><br></pre></td></tr></table></figure></p><p>使用slice分割label和features<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#冒号提取所有项数，第0项是label</span><br><span class="line">Label = ndarray[:,0]</span><br><span class="line">Features = ndarray[:,1:]</span><br></pre></td></tr></table></figure></p><p>在Features里面可以看到数值差值比较大，不利于收敛，在sklearn模块里面提供了preprocessing<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">minmax_scale = preprocessing.MinMaxScaler(feature_range=(0,1))</span><br><span class="line">#.fit_transform函数传入要标准化的数据集  进行标准化</span><br><span class="line">scaledFeature = minmax_scale.fit_transform(Features)</span><br></pre></td></tr></table></figure></p><p>到这里，数据的预处理就已经完成了，接下来就需要把整个数据进行分割，一部分作为训练数据，一部分进行用于测试<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">msk = numpy.random.rand(len(all_df)) &lt; 0.8</span><br><span class="line">train_df = all_df[msk]</span><br><span class="line">test_df = all_df[~msk]</span><br></pre></td></tr></table></figure></p><p>训练模型<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">#两个隐藏层</span><br><span class="line">model.add(Dense(units=240,</span><br><span class="line">                input_dim=9,</span><br><span class="line">                kernel_initializer=&apos;uniform&apos;,</span><br><span class="line">                activation=&apos;relu&apos;))</span><br><span class="line"></span><br><span class="line">model.add(Dense(units=30,</span><br><span class="line">                kernel_initializer=&apos;uniform&apos;,</span><br><span class="line">                activation=&apos;relu&apos;))</span><br><span class="line"></span><br><span class="line">#输出层</span><br><span class="line">model.add(Dense(units=1,</span><br><span class="line">                kernel_initializer=&apos;uniform&apos;,</span><br><span class="line">                activation=&apos;sigmoid&apos;))</span><br><span class="line"></span><br><span class="line">model.compile(loss=&apos;binary_crossentropy&apos;,</span><br><span class="line">              optimizer=&apos;adam&apos;,metrics=[&apos;accuracy&apos;])</span><br><span class="line"></span><br><span class="line">train_history = model.fit(x = train_df,</span><br><span class="line">                          y = label,validation_split=0.2,</span><br><span class="line">                          epochs=30,batch_size=30,verbose=2)</span><br></pre></td></tr></table></figure></p><p>模型训练完之后我们可以查看哪些游客预测的生存率高但是却没有活下来了，Pandas提供了很方便的方法<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pd.[(pd[&apos;surivived&apos;] == 0) &amp; (pd[&apos;probabilityt&apos;] &gt; 0.9)]</span><br></pre></td></tr></table></figure></p>]]></content>
+    
+    <summary type="html">
+    
+      
+      
+        &lt;p&gt;数据科学家在处理数据的时候，常常只会看到冷冰冰的数据，却忘记了这些数据背后的故事，每一项数据都是由生物的活动产生的。这里我使用mlp对一部比较经典的电影进行书数据背后的分析。&lt;/p&gt;
+&lt;p&gt;具体代码详见：&lt;a href=&quot;https://github.com/comphca
+      
+    
+    </summary>
+    
+    
+      <category term="Keras" scheme="http://www.comphca.me/tags/Keras/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>服务器上搭建shadowsocks</title>
+    <link href="http://www.comphca.me/2018/06/04/%E6%9C%8D%E5%8A%A1%E5%99%A8%E4%B8%8A%E6%90%AD%E5%BB%BAshadowsocks/"/>
+    <id>http://www.comphca.me/2018/06/04/服务器上搭建shadowsocks/</id>
+    <published>2018-06-04T15:07:40.000Z</published>
+    <updated>2018-06-04T15:32:10.400Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="Ubuntu-16-版本"><a href="#Ubuntu-16-版本" class="headerlink" title="Ubuntu 16.版本"></a>Ubuntu 16.版本</h2><h4 id="虽然有的国外服务器是能够一键安装shadowsocks，例如bwh，但是他只能在centos-6（还是5）之前的Linux版本上安装，如果想使用别的就需要自己配置，这里以Ubuntu-16-版本为例"><a href="#虽然有的国外服务器是能够一键安装shadowsocks，例如bwh，但是他只能在centos-6（还是5）之前的Linux版本上安装，如果想使用别的就需要自己配置，这里以Ubuntu-16-版本为例" class="headerlink" title="虽然有的国外服务器是能够一键安装shadowsocks，例如bwh，但是他只能在centos 6（还是5）之前的Linux版本上安装，如果想使用别的就需要自己配置，这里以Ubuntu 16.版本为例"></a>虽然有的国外服务器是能够一键安装shadowsocks，例如bwh，但是他只能在centos 6（还是5）之前的Linux版本上安装，如果想使用别的就需要自己配置，这里以Ubuntu 16.版本为例</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ sudo apt update</span><br><span class="line">$ sudo apt upgrade</span><br><span class="line">$ sudo apt-get install python-pip</span><br><span class="line">$ sudo apt-get install python-m2crypto</span><br><span class="line">$ pip install shadowsocks</span><br><span class="line">$ sudo vim /etc/shadowsocks.json</span><br></pre></td></tr></table></figure><h3 id="在创建的shadowsocks-json文件里面写入"><a href="#在创建的shadowsocks-json文件里面写入" class="headerlink" title="在创建的shadowsocks.json文件里面写入"></a>在创建的shadowsocks.json文件里面写入</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line"><span class="string">"server"</span>:<span class="string">"0.0.0.0"</span>,   <span class="comment">#填入服务器的ip地址</span></span><br><span class="line"><span class="string">"server_port"</span>:8388,   <span class="comment">#服务器提供服务端口</span></span><br><span class="line"><span class="string">"local_port"</span>:1080,    <span class="comment">#1080是本地代理端口</span></span><br><span class="line"><span class="string">"password"</span>:<span class="string">"123456"</span>,  <span class="comment">#123456为vps密码  </span></span><br><span class="line"><span class="string">"timeout"</span>:600,</span><br><span class="line"><span class="string">"method"</span>:<span class="string">"aes-256-cfb"</span>  <span class="comment">#加密方式</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h3 id="修改好相关参数后，使用命令"><a href="#修改好相关参数后，使用命令" class="headerlink" title="修改好相关参数后，使用命令"></a>修改好相关参数后，使用命令</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ssserver -c /etc/shadowsocks.json -d start</span><br></pre></td></tr></table></figure><h3 id="自此服务器配置成功，接下来在本地安装shadowsocks填入相关信息即可。"><a href="#自此服务器配置成功，接下来在本地安装shadowsocks填入相关信息即可。" class="headerlink" title="自此服务器配置成功，接下来在本地安装shadowsocks填入相关信息即可。"></a>自此服务器配置成功，接下来在本地安装shadowsocks填入相关信息即可。</h3>]]></content>
+    
+    <summary type="html">
+    
+      
+      
+        &lt;h2 id=&quot;Ubuntu-16-版本&quot;&gt;&lt;a href=&quot;#Ubuntu-16-版本&quot; class=&quot;headerlink&quot; title=&quot;Ubuntu 16.版本&quot;&gt;&lt;/a&gt;Ubuntu 16.版本&lt;/h2&gt;&lt;h4 id=&quot;虽然有的国外服务器是能够一键安装shadowsoc
+      
+    
+    </summary>
+    
+    
+      <category term="服务器" scheme="http://www.comphca.me/tags/%E6%9C%8D%E5%8A%A1%E5%99%A8/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>敏敏看</title>
+    <link href="http://www.comphca.me/2018/06/04/%E6%95%8F%E6%95%8F%E7%9C%8B/"/>
+    <id>http://www.comphca.me/2018/06/04/敏敏看/</id>
+    <published>2018-06-04T09:01:00.000Z</published>
+    <updated>2018-06-04T09:03:17.223Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="今天是敏敏第一天上班的日子！！！"><a href="#今天是敏敏第一天上班的日子！！！" class="headerlink" title="今天是敏敏第一天上班的日子！！！"></a>今天是敏敏第一天上班的日子！！！</h2>]]></content>
+    
+    <summary type="html">
+    
+      
+      
+        &lt;h2 id=&quot;今天是敏敏第一天上班的日子！！！&quot;&gt;&lt;a href=&quot;#今天是敏敏第一天上班的日子！！！&quot; class=&quot;headerlink&quot; title=&quot;今天是敏敏第一天上班的日子！！！&quot;&gt;&lt;/a&gt;今天是敏敏第一天上班的日子！！！&lt;/h2&gt;
+      
+    
+    </summary>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>Hello World</title>
+    <link href="http://www.comphca.me/2018/06/04/hello-world/"/>
+    <id>http://www.comphca.me/2018/06/04/hello-world/</id>
+    <published>2018-06-04T05:23:32.343Z</published>
+    <updated>2018-06-04T05:23:32.343Z</updated>
+    
+    <content type="html"><![CDATA[<p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p><h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p><h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p><h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p><h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/deployment.html" target="_blank" rel="noopener">Deployment</a></p>]]></content>
+    
+    <summary type="html">
+    
+      
+      
+        &lt;p&gt;Welcome to &lt;a href=&quot;https://hexo.io/&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;Hexo&lt;/a&gt;! This is your very first post. Check &lt;a href=&quot;https://hexo.
+      
+    
+    </summary>
+    
+    
+  </entry>
+  
+</feed>
